@@ -3,6 +3,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QRandomGenerator>
+#include <QTime>
 #include "montezuma.h"
 #include <QDebug>
 
@@ -13,6 +15,17 @@ Montezuma::Montezuma(QObject *parent): QAbstractListModel(parent) {
     file.close();
     QJsonObject jsonObject = jsonDoc.object();
     QList<QVariant> list = jsonObject["colors"].toVariant().toList();
+    if (list.size() == 0) {
+        list.append("red");
+        list.append("black");
+    } else if (list.size() == 1) {
+        QString temp = list.at(0).toString();
+        if(temp == "red") {
+            list.append("black");
+        } else {
+            list.append("red");
+        }
+    }
     auto it = list.begin();
     for (; it != list.end(); ++it ) {
         m_colors.append((*it).toString());
@@ -23,8 +36,10 @@ Montezuma::Montezuma(QObject *parent): QAbstractListModel(parent) {
     if (m_rows < 5) m_rows = 5;
 
     int m_size = m_rows * m_columns;
+    QTime t;
+    //QRandomGenerator random(t.msec());
     for (int i = 0; i < m_size; i++) {
-        int j = rand() % m_colors.size();
+        int j = (rand() + t.msec()) /*random.generate()*/ % m_colors.size();
         Ball ball{};
         ball.color = m_colors.at(j);
         ball.visible = true;
@@ -33,10 +48,12 @@ Montezuma::Montezuma(QObject *parent): QAbstractListModel(parent) {
         m_balls.append(ball);
     }
     clearChunk();
+    //while ()
+
     m_boardWidth = m_columns * 50;
     m_boardHeight = m_rows * 50;
     m_markIndex = -1;
-    m_fail = false;
+    //m_fail = false;
     m_variant = false;
     m_move = 0;
     m_score = 0;
@@ -118,14 +135,14 @@ void Montezuma::setScore(int score) {
     emit scoreChanged();//m_score);
 }
 
-bool Montezuma::getFail() const {
-    return m_fail;
-}
+//bool Montezuma::getFail() const {
+//    return m_fail;
+//}
 
-void Montezuma::setFail(bool fail) {
-    m_fail = fail;
-    emit failChanged();
-}
+//void Montezuma::setFail(bool fail) {
+//    m_fail = fail;
+//    emit failChanged();
+//}
 
 void Montezuma::mark(int index) {
     if (m_markIndex >= 0) {
@@ -179,7 +196,9 @@ void Montezuma::downfallVertical(int index) {
 bool Montezuma::validation(int index) {     //operation validity test
     m_balls.swapItemsAt(index, m_markIndex);
     m_horizontal = findHorizontalChunk(index); //save result if found
+    if (!m_horizontal.found) m_horizontal = findHorizontalChunk(m_markIndex);
     m_vertical = findVerticalChunk(index);
+    if (!m_vertical.found) m_vertical = findVerticalChunk(m_markIndex);
     m_balls.swapItemsAt(index, m_markIndex);
     if (m_horizontal.found || m_vertical.found) {
         return true;
@@ -189,20 +208,26 @@ bool Montezuma::validation(int index) {     //operation validity test
 
 void Montezuma::move(int index) {
     m_level = 1;
+    bool m_fail = false;
     if (index - m_markIndex == 1) {  //right
+        //qDebug() << "right" << index << m_markIndex;
         if (validation(index)) {
             beginMoveRows(QModelIndex(), index, index, QModelIndex(), index - 1);
+//            beginMoveRows(QModelIndex(), index, index, QModelIndex(), index - 2);
             m_balls.move(index, m_markIndex);
             endMoveRows();
+//            beginMoveRows(QModelIndex(), index-2, index-2, QModelIndex(), index);
+//            m_balls.move(m_markIndex-1,index);
+//            endMoveRows();
             m_move++;
-        }
+        } else m_fail = true;
     } else if (m_markIndex - index == 1) { //left
         if (validation(index)) {
             beginMoveRows(QModelIndex(), index, index, QModelIndex(), index + 2);
             m_balls.move(index, m_markIndex);
             endMoveRows();
             m_move++;
-        }
+        } else m_fail = true;
     } else if (index - m_markIndex == m_columns) { //down
         if (validation(index)) {
             beginMoveRows(QModelIndex(), index, index, QModelIndex(), m_markIndex);
@@ -212,7 +237,7 @@ void Montezuma::move(int index) {
             m_balls.move(m_markIndex+1, index);
             endMoveRows();
             m_move++;
-        }
+        } else m_fail = true;
     } else if (m_markIndex - index == m_columns) {  //up
         if (validation(index)) {
             beginMoveRows(QModelIndex(), index, index, QModelIndex(), m_markIndex+1);
@@ -222,14 +247,16 @@ void Montezuma::move(int index) {
             m_balls.move(m_markIndex-1, index);
             endMoveRows();
             m_move++;
-        }
+        } else m_fail = true;
     } else {
         m_fail = true;
+    }
+    if (m_fail) {
         m_balls[index].failor = true;
         m_balls[m_markIndex].failor = true;
-
+        //qDebug() << index << m_markIndex;
     }
-    emit moveChanged();//m_move);
+    //emit moveChanged();//m_move);
     m_roles.append(Roles::MarkStatus);
     if (m_fail) m_roles.append(Roles::Failor);
     m_modelIndex = QAbstractItemModel::createIndex(index, 0);
@@ -241,57 +268,72 @@ void Montezuma::move(int index) {
     m_roles.clear();
     if (!m_fail) {
         timer->start();
-    } else {
-        m_balls[index].failor = false;
-        m_balls[m_markIndex].failor = false;
-        m_fail = false;
     }
+    m_balls[index].failor = false;
+    m_modelIndex = QAbstractItemModel::createIndex(index, 0);
+    emit dataChanged(m_modelIndex, m_modelIndex, m_roles);
+    m_balls[m_markIndex].failor = false;
+    m_modelIndex = QAbstractItemModel::createIndex(m_markIndex, 0);
+    emit dataChanged(m_modelIndex, m_modelIndex, m_roles);
     m_markIndex = -1;
 }
 //mark->move->downfall->opacityAnimation->downfallVertical->addTransitionAnimation->forward->downfall...
 void Montezuma::downfall() {
     int score = 0;
     if (m_horizontal.found) {
-        for (int index = m_horizontal.begin; index <= m_horizontal.end; index++) {
-            m_balls[index].visible = false;
-            m_modelIndex = QAbstractItemModel::createIndex(index, 0);
-            m_roles.append(Roles::Visible);
-            emit dataChanged(m_modelIndex, m_modelIndex, m_roles);
-            m_roles.clear();
-            score++;
+        for (int i = m_horizontal.begin; i <= m_horizontal.end; i++) {
+            m_allChunks.insert(i);
         }
         m_horizontal.found = false;
     }
     if (m_vertical.found) {
-        for (int index = m_vertical.begin; index <= m_vertical.end; index+=m_columns) {
-            m_balls[index].visible = false;
-            m_modelIndex = QAbstractItemModel::createIndex(index, 0);
-            m_roles.append(Roles::Visible);
-            emit dataChanged(m_modelIndex, m_modelIndex, m_roles);
-            m_roles.clear();
-            score++;
+        for (int i = m_vertical.begin; i <= m_vertical.end; i+=m_columns) {
+            m_allChunks.insert(i);
         }
         m_vertical.found = false;
     }
+
+    m_roles.append(Roles::Visible);
+    QSet<int>::iterator it;
+    for (it = m_allChunks.begin(); it != m_allChunks.end(); ++it) {
+        int index = *it;
+        m_balls[index].visible = false;
+        m_modelIndex = QAbstractItemModel::createIndex(index, 0);
+        emit dataChanged(m_modelIndex, m_modelIndex, m_roles);
+        score++;
+    }
+    m_roles.clear();
     m_score += score * m_level;
     emit scoreChanged();//m_score);
     //qDebug() << m_move << m_score << m_level;
 }
 
 void Montezuma::forward() {
+    m_allChunks.clear();
     m_variant = false;
+    bool found = false;
     for (int i = 0; i < m_balls.size(); i++) {
         m_horizontal = findHorizontalChunk(i);
-        if (m_horizontal.found) break;
+        if (m_horizontal.found) {
+            for (int j = m_horizontal.begin; j <= m_horizontal.end; j++) {
+                m_allChunks.insert(j);
+            }
+            found = true;
+        }
         m_vertical = findVerticalChunk(i);
-        if (m_vertical.found) break;
+        if (m_vertical.found) {
+            for (int j = m_vertical.begin; j <= m_vertical.end; j+=m_columns) {
+                m_allChunks.insert(j);
+            }
+            found = true;
+        }
         if (!m_variant) {
             if (checkHorizontalVariant(i) || checkVerticalVariant(i)) {
                 m_variant = true;
             }
         }
     }
-    if (m_horizontal.found || m_vertical.found) {
+    if (found) {
         downfall();
         m_level++;
     } else if (!m_variant) {

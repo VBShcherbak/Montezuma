@@ -6,7 +6,7 @@ import plugins.montezuma 1.0
 Window {
     id: root
     width: montezuma.boardWidth
-    height: montezuma.boardHeight * 1.2
+    height: width * 1.2//montezuma.boardHeight * 1.2
     color: "#FFECD5"
     visible: true
     title: qsTr("Montezuma")
@@ -33,7 +33,7 @@ Window {
                     id: wrapper
                     width: GridView.view.cellWidth - 2
                     height: width
-                    color: root.color
+                    color: "transparent"
 
                     Rectangle {
                         id: ball
@@ -50,10 +50,10 @@ Window {
                         onFailorChanged: if (failor) fail.start();
                         property bool fader: ballVisible
                         onFaderChanged: if (!fader) fade.start();
-//                        Text {
-//                            id: name
-//                            text: index
-//                        }
+                        Text {
+                            id: name
+                            text: index
+                        }
                         states: [
                             State {
                                 name: "big"
@@ -96,17 +96,18 @@ Window {
                                 to: 1
                                 duration: 300
                             }
-                            onRunningChanged: {
-                               if (!running) {
-                                   ball.failor = false;
-                               }
-                            }
+//                            onRunningChanged: {
+//                               if (!running) {
+//                                   ball.failor = false;
+//                               }
+//                            }
                         }
                         MouseArea {
                             id: mouseArea
                             anchors.fill: parent
                             onClicked: {
                                 montezuma.mark(index);
+//                                finish.visible = true
                            }
                       }
                  }
@@ -127,13 +128,22 @@ Window {
                 }
             }
         }
-        Text {
+        Rectangle {
             id: finish
-            text: "NO VARIANT"
+            width: parent.width - parent.width / 5
+            height: width / 4
             anchors.centerIn: parent
-            font.pixelSize: parent.width/10
-            color: "blue"
+            border.color: "#A4856C"
+            border.width: 2
+            radius: width / 5
+            color: "#FFF0E5"
             visible: false
+            Text {
+                text: "NO VARIANT"
+                anchors.centerIn: finish
+                font.pixelSize: finish.height / 2
+                color: "blue"
+            }
         }
     }
 
