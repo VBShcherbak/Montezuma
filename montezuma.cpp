@@ -34,12 +34,20 @@ Montezuma::Montezuma(QObject *parent): QAbstractListModel(parent) {
     m_rows = jsonObject["rows"].toInt();    // * 2;
     if (m_columns < 5) m_columns = 5;
     if (m_rows < 5) m_rows = 5;
+    m_boardWidth = m_columns > 9 ? m_columns*50 : 500;
+    m_boardHeight = m_columns > 9 ? m_rows*50+110 : 500/m_columns*m_rows+110; //> 9 ? m_rows * 50 : 500;
+    m_markIndex = -1;
+    //m_fail = false;
+    m_variant = false;
+    m_move = 0;
+    m_score = 0;
+    m_level = 1;
 
     int m_size = m_rows * m_columns;
-    QTime t;
-    //QRandomGenerator random(t.msec());
+    QTime t = QTime::currentTime();
+    QRandomGenerator random(t.msec());
     for (int i = 0; i < m_size; i++) {
-        int j = (rand() + t.msec()) /*random.generate()*/ % m_colors.size();
+        int j = random.generate() % m_colors.size();
         Ball ball{};
         ball.color = m_colors.at(j);
         ball.visible = true;
@@ -47,17 +55,23 @@ Montezuma::Montezuma(QObject *parent): QAbstractListModel(parent) {
         ball.markStatus = false;
         m_balls.append(ball);
     }
-    clearChunk();
-    //while ()
+    if (m_colors.size() == 2) {
+        twoColorsStart();
+    } else clearChunk();
+    //int count = 0;
+    while (!m_variant) {
+        for (int i = 0; i < m_balls.size(); i++) {
+            if (checkHorizontalVariant(i) || checkVerticalVariant(i)) {
+                m_variant = true;
+                break;
+            }
+        }
+        if (!m_variant) mixBalls();
+        //count++;
+        //if (count > 1000) break;
+    }
+    qDebug() << m_boardWidth << m_boardHeight;
 
-    m_boardWidth = m_columns * 50;
-    m_boardHeight = m_rows * 50;
-    m_markIndex = -1;
-    //m_fail = false;
-    m_variant = false;
-    m_move = 0;
-    m_score = 0;
-    m_level = 1;
 
     timer = new QTimer(this);
     timer->setInterval(400);
@@ -256,7 +270,7 @@ void Montezuma::move(int index) {
         m_balls[m_markIndex].failor = true;
         //qDebug() << index << m_markIndex;
     }
-    //emit moveChanged();//m_move);
+    emit moveChanged();
     m_roles.append(Roles::MarkStatus);
     if (m_fail) m_roles.append(Roles::Failor);
     m_modelIndex = QAbstractItemModel::createIndex(index, 0);
@@ -412,18 +426,41 @@ void Montezuma::timerHit() {
     timer->stop();
 }
 
+void Montezuma::twoColorsStart() {
+    int evenRow = 0;
+    for (int i = 0; i < m_balls.size(); i+=m_columns) {
+        evenRow = evenRow ? 0 : 1;
+        int index = evenRow;
+        int count = 0;
+        for (int j = i; j < i+m_columns; j++) {
+            m_balls[j].color = m_colors.at(index);
+            count++;
+            if (count > 1) {
+                index = index ? 0 : 1;
+                count = 0;
+            }
+        }
+    }
+}
+
 void Montezuma::mixBalls() {
     beginResetModel();
-    m_balls.clear();
-    int m_size = m_rows * m_columns;
-    for (int i = 0; i < m_size; i++) {
-        int j = rand() % m_colors.size();
-        Ball ball{};
-        ball.color = m_colors.at(j);
-        ball.visible = true;
-        ball.failor = false;
-        ball.markStatus = false;
-        m_balls.append(ball);
+    if (m_colors.size() == 2) {
+        twoColorsStart();
+    } else {
+        //m_balls.clear();
+        //int m_size = m_rows * m_columns;
+        QTime t = QTime::currentTime();
+        QRandomGenerator random(t.msec());
+        for (int i = 0; i < m_balls.size(); i++) {
+            int j = random.generate() % m_colors.size();
+//            Ball ball{};
+            m_balls[i].color = m_colors.at(j);
+//            ball.visible = true;
+//            ball.failor = false;
+//            ball.markStatus = false;
+//            m_balls.append(ball);
+        }
     }
     clearChunk();
     endResetModel();

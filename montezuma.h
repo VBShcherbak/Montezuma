@@ -71,6 +71,7 @@ private:
     bool checkHorizontalVariant(int index);
     bool checkVerticalVariant(int index);
     void clearChunk();
+    void twoColorsStart();
 
 signals:
     void gameOver();

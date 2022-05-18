@@ -5,8 +5,8 @@ import plugins.montezuma 1.0
 
 Window {
     id: root
-    width: montezuma.boardWidth
-    height: width * 1.2//montezuma.boardHeight * 1.2
+    width: Math.max(montezuma.boardWidth, 250)
+    height: montezuma.boardHeight
     color: "#FFECD5"
     visible: true
     title: qsTr("Montezuma")
@@ -14,8 +14,8 @@ Window {
     Rectangle {
         id: background
         x: 5
-        height: root.height - header.height - 10
         width: root.width - 10
+        height: root.height - 110
         color: root.color
         border.color: "#90674B"
         border.width: 2
@@ -81,6 +81,15 @@ Window {
                                }
                             }
                         }
+//                        XAnimator on x {
+//                                duration: 1000
+//                            }
+//                        Behavior on x {
+//                            NumberAnimation {
+//                                id: animationX;
+//                                duration: 500;
+//                            }
+//                        }
                         SequentialAnimation {
                             id: fail
                             loops: 2
@@ -113,8 +122,15 @@ Window {
                  }
             }
             move: Transition {
-                NumberAnimation { properties: "x,y"; duration: 300 }
+                NumberAnimation { properties: "y"; duration: 300 }
             }
+            moveDisplaced: Transition {
+                NumberAnimation { properties: "x"; duration: 300 }
+            }
+
+            populate: Transition {
+                    NumberAnimation { properties: "x,y"; duration: 500 }
+                }
             add: Transition {
                 NumberAnimation {
                     property: "y"
@@ -157,7 +173,7 @@ Window {
         id: header
         //z: 1
         width: root.width
-        height: width / 5
+        height: 100
         color: root.color
 
         Row {
@@ -174,7 +190,7 @@ Window {
                     Text {
                         id: move
                         anchors.horizontalCenter: parent.horizontalCenter
-                        font.pixelSize: montezuma.boardHeight / 25
+                        font.pixelSize: header.height / 5
                         color: "#805D43"
                         text: "move"
                     }
@@ -195,7 +211,7 @@ Window {
                 Button {
                     id: mix
                     width: parent.width
-                    height: width/2
+                    height: header.height / 3 * 2
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.verticalCenter: parent.verticalCenter
                     Text {
@@ -245,7 +261,12 @@ Window {
                 }
             }
         }
+        Component.onCompleted: {
+            console.log("header", width, height);
+        }
     }
-
+    Component.onCompleted: {
+        console.log("window", width, height);
+    }
 }
 
